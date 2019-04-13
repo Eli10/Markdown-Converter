@@ -19,11 +19,23 @@ let read_all filename =
   in
   read []
 
-(* let rec print_file_data_list string_list =
-  match string_list with
-  | (hd::tl) -> Printf.printf hd; print_file_data_list tl
-  | [] -> "" *)
+
+(* Check first character of a line to see if it is a regular line or not*)
+let check_tag line_string =
+  if String.length line_string = 0 then
+    print_string "No character on this line\n"
+    (* Printf.printf "%s No character on this line\n" line_string *)
+  else
+    let first_char = String.get line_string 0 in
+    match first_char with
+    | '#' -> Printf.printf "%s - Yes it start #\n" line_string
+    | '_' -> Printf.printf "%s - Yes it start _\n" line_string
+    | '*' -> Printf.printf "%s - Yes it start *\n" line_string
+    | _ -> Printf.printf "%s - Does not start with any identifies. Regular line\n" line_string
+
 
 let () =
   let file_data = read_all "test.md" in
-  List.iter (Printf.printf "%s\n") file_data
+  let reverse_data = List.rev file_data in
+  (* List.iter (Printf.printf "%s\n") reverse_data;; *)
+  List.iter (check_tag) reverse_data ;;
