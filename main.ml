@@ -144,8 +144,13 @@ let converting_classification_string_to_html classification_string =
   | Heading4 x -> convert_h4 x
   | Heading5 x -> convert_h5 x
   | Heading6 x -> convert_h6 x
-  | _ -> "Skip for now\n"
+  | _ -> "<p> Skip for now </p>\n"
 
+
+let write_to_html_file html_string =
+  let htmlfile = open_out_gen [Open_creat; Open_text; Open_append] 0o640 "test.html" in
+  output_string htmlfile html_string;
+  close_out htmlfile
 
 
 let () =
@@ -154,6 +159,7 @@ let () =
   (* List.iter (Printf.printf "%s\n") reverse_data;; *)
   (* List.iter (check_tag) reverse_data in *)
   let c_list = List.map map_tag reverse_data in
-  let html_list = List.map converting_classification_string_to_html c_list in
-  List.iter print_string html_list;;
   (* List.iter print_map_list c_list ;; *)
+  let html_list = List.map converting_classification_string_to_html c_list in
+  (* List.iter print_string html_list;; *)
+  List.iter write_to_html_file html_list ;;
