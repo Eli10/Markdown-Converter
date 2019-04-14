@@ -24,3 +24,9 @@ make the implementation an easier process.
 
 Testing my implementation against some other "canonical" Markdown implementation
 - Either against CommonMark or a version of Markdown
+
+
+# Compile
+
+ocamlopt -o ex str.cmxa main.ml
+./ex
