@@ -6,7 +6,9 @@ type classfication =
   | Heading5 of string
   | Heading6 of string
   | Paragraph of string
-  | BoldOrItalic of string
+  (* | BoldOrItalic of string *)
+  | UnOrderedList of string
+  | OrderedList of string
   | Unknown of string
   | Empty
 
@@ -17,11 +19,14 @@ let h4_recipe = Str.regexp "^####"
 let h5_recipe = Str.regexp "^#####"
 let h6_recipe = Str.regexp "^######"
 
-let bold_recipe1 = Str.regexp "(\*{2})"
+(* let bold_recipe1 = Str.regexp "(\*{2})"
 let bold_recipe2 = Str.regexp "[__]*"
 let italic_recipe1 = Str.regexp "*"
-let italic_recipe2 = Str.regexp "_"
+let italic_recipe2 = Str.regexp "_" *)
 
+
+let unordered_list_recipe = Str.regexp "\\*\|\\-"
+let ordered_list_recipe = Str.regexp "[0-9]\\."
 
 
 let get_line ic =
@@ -81,6 +86,16 @@ let check_heading_level line_string =
             else
               Unknown line_string
 
+
+let check_begining_whitespace line_string =
+  if Str.string_match unordered_list_recipe line_string 1 then
+    UnOrderedList line_string
+  else
+    if Str.string_match ordered_list_recipe line_string 1 then
+      OrderedList line_string
+    else
+      Unknown line_string
+
 (* Function check first char of line to begin classfication *)
 let map_tag line_string =
   if String.length line_string = 0 then
@@ -91,8 +106,7 @@ let map_tag line_string =
     let first_char = String.get line_string 0 in
     match first_char with
     | '#' -> check_heading_level line_string
-    | '_' -> BoldOrItalic line_string
-    | '*' -> BoldOrItalic line_string
+    | ' ' -> check_begining_whitespace line_string
     | _ -> Paragraph line_string
 
 (* Helper Function to print out what the lines are classified as *)
@@ -104,9 +118,11 @@ let print_map_list classification_string =
   | Heading4 x -> Printf.printf "%s - Heading 4\n" x
   | Heading5 x -> Printf.printf "%s - Heading 5\n" x
   | Heading6 x -> Printf.printf "%s - Heading 6\n" x
-  | BoldOrItalic x -> Printf.printf "%s - Bold or Italic \n" x
+  (* | BoldOrItalic x -> Printf.printf "%s - Bold or Italic \n" x *)
   | Paragraph x -> Printf.printf "%s - Paragraph\n" x
   | Unknown x -> Printf.printf "%s - Unknown\n" x
+  | UnOrderedList x -> Printf.printf "%s - Unordered List\n" x
+  | OrderedList x -> Printf.printf "%s - Ordered List\n" x
   | Empty -> Printf.printf "Empty line\n"
 
 
@@ -138,22 +154,22 @@ let convert_h6 line_string =
 let convert_paragraph line_string =
   let html_string = "<p> " ^ line_string ^ " </p>\n" in html_string
 
-let convert_bolditalic line_string =
+
+let convert_unordered_list_item line_string =
+  let html_string = Str.global_replace unordered_list_recipe "<ul>\n<li>" line_string in
+  html_string ^ " </li>\n </ul>\n"
+
+let convert_ordered_list_item line_string =
+  let html_string = Str.global_replace ordered_list_recipe "<ol>\n<li>" line_string in
+  html_string ^ " </li>\n </ol>\n"
+
+(* let convert_bolditalic line_string =
   if Str.string_match bold_recipe1 line_string 0 then
-    (* let first_replacement = Str.replace_first bold_recipe1 "<b>" line_string in
-    print_string first_replacement;
-    let second_replacement = Str.replace_first bold_recipe1 "</b>" first_replacement in
-    second_replacement ^ "\n" *)
     let html_string = Str.global_substitute bold_recipe1 (fun s -> "<b>") line_string in
     print_string html_string;
     html_string
   else
-    (* if Str.string_match bold_recipe2 line_string 0 then
-      let html_string = Str.replace_first bold_recipe2 "<b>" line_string in
-      html_string ^ "\n"
-    else
-      line_string *)
-    line_string
+    line_string *)
 
 
 
@@ -170,8 +186,11 @@ let converting_classification_string_to_html classification_string =
   | Heading5 x -> convert_h5 x
   | Heading6 x -> convert_h6 x
   | Paragraph x -> convert_paragraph x
-  | BoldOrItalic x -> convert_bolditalic x
-  | _ -> "<p> Skip for now </p>\n"
+  (* | BoldOrItalic x -> "<p> " ^ x ^ "</p>\n" *)
+  | UnOrderedList x -> convert_unordered_list_item x
+  | OrderedList x -> convert_ordered_list_item x
+  | Empty-> "\n"
+  | Unknown x -> "Unknown " ^ x ^ " \n"
 
 
 let write_to_html_file html_string =
