@@ -9,6 +9,7 @@ type classfication =
   (* | BoldOrItalic of string *)
   | UnOrderedList of string
   | OrderedList of string
+  | Code of string
   | Unknown of string
   | Empty
 
@@ -27,6 +28,8 @@ let italic_recipe2 = Str.regexp "_" *)
 
 let unordered_list_recipe = Str.regexp "\\*\|\\-"
 let ordered_list_recipe = Str.regexp "[0-9]\\."
+
+let code_recipe = Str.regexp "\\`"
 
 
 let get_line ic =
@@ -96,6 +99,14 @@ let check_begining_whitespace line_string =
     else
       Unknown line_string
 
+
+let check_other_options line_string =
+  if Str.string_match code_recipe line_string 0 then
+    Code line_string
+  else
+    Paragraph line_string
+
+
 (* Function check first char of line to begin classfication *)
 let map_tag line_string =
   if String.length line_string = 0 then
@@ -107,7 +118,7 @@ let map_tag line_string =
     match first_char with
     | '#' -> check_heading_level line_string
     | ' ' -> check_begining_whitespace line_string
-    | _ -> Paragraph line_string
+    | _ -> check_other_options line_string
 
 (* Helper Function to print out what the lines are classified as *)
 let print_map_list classification_string =
@@ -163,6 +174,11 @@ let convert_ordered_list_item line_string =
   let html_string = Str.global_replace ordered_list_recipe "<ol>\n<li>" line_string in
   html_string ^ " </li>\n </ol>\n"
 
+let convert_code_string line_string =
+  let html_string = Str.replace_first code_recipe "<code>" line_string in
+  let final_string = Str.replace_first code_recipe "</code>" html_string
+  in final_string
+
 (* let convert_bolditalic line_string =
   if Str.string_match bold_recipe1 line_string 0 then
     let html_string = Str.global_substitute bold_recipe1 (fun s -> "<b>") line_string in
@@ -189,6 +205,7 @@ let converting_classification_string_to_html classification_string =
   (* | BoldOrItalic x -> "<p> " ^ x ^ "</p>\n" *)
   | UnOrderedList x -> convert_unordered_list_item x
   | OrderedList x -> convert_ordered_list_item x
+  | Code x -> convert_code_string x
   | Empty-> "\n"
   | Unknown x -> "Unknown " ^ x ^ " \n"
 
