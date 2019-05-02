@@ -23,10 +23,10 @@ make the implementation an easier process.
 # Testing
 
 Testing my implementation against some other "canonical" Markdown implementation
-- Either against CommonMark or a version of Markdown
+- Either against CommonMark or another version of Markdown
 
 
 # Compile
 
-ocamlopt -o ex str.cmxa main.ml
-./ex
+- ocamlopt -o ex str.cmxa main.ml
+- ./ex
