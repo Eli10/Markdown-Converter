@@ -6,11 +6,16 @@ type classfication =
   | Heading5 of string
   | Heading6 of string
   | Paragraph of string
-  (* | BoldOrItalic of string *)
-  | UnOrderedList of string
-  | OrderedList of string
+  | UnOrderedListItem of string
+  | OrderedListItem of string
+  | Code of string
+  | BlockquoteItem of string
+  | Blockquote of (string list)
+  | UnOrderedList of (string list)
+  | OrderedList of (string list)
   | Unknown of string
   | Empty
+
 
 let h1_recipe = Str.regexp "^#"
 let h2_recipe = Str.regexp "^##"
@@ -19,15 +24,12 @@ let h4_recipe = Str.regexp "^####"
 let h5_recipe = Str.regexp "^#####"
 let h6_recipe = Str.regexp "^######"
 
-(* let bold_recipe1 = Str.regexp "(\*{2})"
-let bold_recipe2 = Str.regexp "[__]*"
-let italic_recipe1 = Str.regexp "*"
-let italic_recipe2 = Str.regexp "_" *)
-
-
-let unordered_list_recipe = Str.regexp "\\*\|\\-"
+let unordered_list_recipe = Str.regexp "\\*\|\\-\|\\+"
 let ordered_list_recipe = Str.regexp "[0-9]\\."
 
+let code_recipe = Str.regexp "\\`"
+
+let blockquote_recipe = Str.regexp "\\>"
 
 let get_line ic =
   try
@@ -89,12 +91,21 @@ let check_heading_level line_string =
 
 let check_begining_whitespace line_string =
   if Str.string_match unordered_list_recipe line_string 1 then
-    UnOrderedList line_string
+    UnOrderedListItem line_string
+  else if Str.string_match ordered_list_recipe line_string 1 then
+      OrderedListItem line_string
+  else if Str.string_match blockquote_recipe line_string 1 then
+      BlockquoteItem line_string
   else
-    if Str.string_match ordered_list_recipe line_string 1 then
-      OrderedList line_string
-    else
-      Unknown line_string
+    Unknown line_string
+
+
+let check_other_options line_string =
+  if Str.string_match code_recipe line_string 0 then
+    Code line_string
+  else
+    Paragraph line_string
+
 
 (* Function check first char of line to begin classfication *)
 let map_tag line_string =
@@ -106,8 +117,10 @@ let map_tag line_string =
     let first_char = String.get line_string 0 in
     match first_char with
     | '#' -> check_heading_level line_string
+    | '>' -> BlockquoteItem line_string
     | ' ' -> check_begining_whitespace line_string
-    | _ -> Paragraph line_string
+    | _ -> check_other_options line_string
+
 
 (* Helper Function to print out what the lines are classified as *)
 let print_map_list classification_string =
@@ -121,8 +134,13 @@ let print_map_list classification_string =
   (* | BoldOrItalic x -> Printf.printf "%s - Bold or Italic \n" x *)
   | Paragraph x -> Printf.printf "%s - Paragraph\n" x
   | Unknown x -> Printf.printf "%s - Unknown\n" x
-  | UnOrderedList x -> Printf.printf "%s - Unordered List\n" x
-  | OrderedList x -> Printf.printf "%s - Ordered List\n" x
+  | Code x -> Printf.printf "%s - Code\n" x
+  | UnOrderedListItem x -> Printf.printf "%s - Unordered List Item\n" x
+  | OrderedListItem x -> Printf.printf "%s - Ordered List Item\n" x
+  | BlockquoteItem x -> Printf.printf "%s - Blockquote Item\n" x
+  | UnOrderedList x -> Printf.printf "- Unordered List\n"
+  | OrderedList x -> Printf.printf " - Ordered List\n"
+  | Blockquote x -> Printf.printf " - Blockquote\n"
   | Empty -> Printf.printf "Empty line\n"
 
 
@@ -154,14 +172,136 @@ let convert_h6 line_string =
 let convert_paragraph line_string =
   let html_string = "<p> " ^ line_string ^ " </p>\n" in html_string
 
-
 let convert_unordered_list_item line_string =
-  let html_string = Str.global_replace unordered_list_recipe "<ul>\n<li>" line_string in
-  html_string ^ " </li>\n </ul>\n"
+  let html_string = Str.global_replace unordered_list_recipe "<li>" line_string in
+  html_string ^ " </li>\n"
 
 let convert_ordered_list_item line_string =
-  let html_string = Str.global_replace ordered_list_recipe "<ol>\n<li>" line_string in
-  html_string ^ " </li>\n </ol>\n"
+  let html_string = Str.global_replace ordered_list_recipe "<li>" line_string in
+  html_string ^ " </li>\n"
+
+let convert_code_string line_string =
+  let html_string = Str.replace_first code_recipe "<code>" line_string in
+  let final_string = Str.replace_first code_recipe "</code>" html_string
+  in final_string
+
+
+(* Functions for group items *)
+(* ------------------ *)
+(* ------------------ *)
+
+let remove_blockquote_symbol line_string =
+  let html_string = Str.global_replace blockquote_recipe "" line_string in
+  html_string
+
+(* Function converts Blockquote string list into a single string *)
+let rec create_blockquote_string final_string string_list =
+  match string_list with
+  | (hd::tl) -> create_blockquote_string (final_string ^"\n" ^ "<p>" ^ hd ^ "</p>") tl
+  | [hd] -> (final_string ^"\n"^ "<p>" ^ hd ^ "</p>")
+  | [] -> final_string
+
+(* Function converts Blockquote classification type into html   *)
+let convert_blockquote string_list =
+  Printf.printf "%i" (List.length string_list);
+  let remove_symbols_list = List.map remove_blockquote_symbol string_list in
+  let reverse_list = List.rev remove_symbols_list in
+  List.iter print_string reverse_list;
+  let blockquote_string = create_blockquote_string "" reverse_list in
+  "<blockquote>" ^ blockquote_string ^ "\n</blockquote>"
+
+(* Function that goes through list to group together Blockquote Items into One Blockquote *)
+let rec group_blockquote_items blockquote_object start_quote classification_list =
+  match blockquote_object with
+  | Blockquote x1 ->
+    match classification_list with
+    | (hd::tl) ->
+      match hd with
+      | BlockquoteItem x2 ->
+        group_blockquote_items (Blockquote (start_quote::x1)) x2 tl
+      | _ -> (Blockquote (start_quote::x1))::hd::classification_list
+    | _ -> classification_list
+
+
+let remove_unordered_list_symbol line_string =
+  convert_unordered_list_item line_string
+
+(* Function converts UnOrderedList string list into a single string *)
+let rec create_unordered_list_string final_string string_list =
+  match string_list with
+  | (hd::tl) -> create_unordered_list_string (final_string ^ hd ) tl
+  | [hd] -> (final_string ^ hd )
+  | [] -> final_string
+
+(* Function converts UnOrderedList classification type into html   *)
+let convert_unordered_list string_list =
+  Printf.printf "%i" (List.length string_list);
+  let remove_symbols_list = List.map remove_unordered_list_symbol string_list in
+  let reverse_list = List.rev remove_symbols_list in
+  List.iter print_string reverse_list;
+  let unordered_string = create_unordered_list_string "" reverse_list in
+  "<ul>\n" ^ unordered_string ^ "</ul>"
+
+(* Function that goes through list to group together UnOrderedList Items into One UnOrderedList type *)
+let rec group_unordered_items unordered_item_object start_item classification_list =
+  match unordered_item_object with
+  | UnOrderedList x1 ->
+    match classification_list with
+    | (hd::tl) ->
+      match hd with
+      | UnOrderedListItem x2 ->
+        group_unordered_items (UnOrderedList (start_item::x1)) x2 tl
+      | _ -> (UnOrderedList (start_item::x1))::hd::classification_list
+    | _ -> classification_list
+
+
+let remove_ordered_list_symbol line_string =
+  convert_ordered_list_item line_string
+
+(* Function converts OrderedList string list into a single string *)
+let rec create_ordered_list_string final_string string_list =
+  match string_list with
+  | (hd::tl) -> create_ordered_list_string (final_string ^ hd ) tl
+  | [hd] -> (final_string ^ hd )
+  | [] -> final_string
+
+(* Function converts OrderedList classification type into html   *)
+let convert_ordered_list string_list =
+  Printf.printf "%i" (List.length string_list);
+  let remove_symbols_list = List.map remove_ordered_list_symbol string_list in
+  let reverse_list = List.rev remove_symbols_list in
+  List.iter print_string reverse_list;
+  let ordered_string = create_ordered_list_string "" reverse_list in
+  "<ol>\n" ^ ordered_string ^ "</ol>"
+
+
+(* Function that goes through list to group together OrderedList Items into One OrderedList type *)
+let rec group_ordered_items ordered_item_object start_item classification_list =
+  match ordered_item_object with
+  | OrderedList x1 ->
+    match classification_list with
+    | (hd::tl) ->
+      match hd with
+      | OrderedListItem x2 ->
+        group_ordered_items (OrderedList (start_item::x1)) x2 tl
+      | _ -> (OrderedList (start_item::x1))::hd::classification_list
+    | _ -> classification_list
+
+
+(* Function iterates through classfication list to find items to group together  *)
+let rec group_list_items classification_list =
+  match classification_list with
+  | [] -> []
+  | (hd::tl) ->
+      match hd with
+      | BlockquoteItem x -> group_list_items (group_blockquote_items (Blockquote []) x tl)
+      | UnOrderedListItem x -> group_list_items (group_unordered_items (UnOrderedList []) x tl)
+      | OrderedListItem x -> group_list_items (group_ordered_items (OrderedList []) x tl)
+      | _ ->  hd::group_list_items tl
+  | _ -> classification_list
+
+(* ------------------ *)
+(* ------------------ *)
 
 (* let convert_bolditalic line_string =
   if Str.string_match bold_recipe1 line_string 0 then
@@ -186,9 +326,10 @@ let converting_classification_string_to_html classification_string =
   | Heading5 x -> convert_h5 x
   | Heading6 x -> convert_h6 x
   | Paragraph x -> convert_paragraph x
-  (* | BoldOrItalic x -> "<p> " ^ x ^ "</p>\n" *)
-  | UnOrderedList x -> convert_unordered_list_item x
-  | OrderedList x -> convert_ordered_list_item x
+  | Code x -> convert_code_string x
+  | Blockquote x -> convert_blockquote x
+  | UnOrderedList x -> convert_unordered_list x
+  | OrderedList x -> convert_ordered_list x
   | Empty-> "\n"
   | Unknown x -> "Unknown " ^ x ^ " \n"
 
@@ -198,7 +339,6 @@ let write_to_html_file html_string =
   output_string htmlfile html_string;
   close_out htmlfile
 
-
 let () =
   let file_data = read_all "test.md" in
   let reverse_data = List.rev file_data in
@@ -206,6 +346,8 @@ let () =
   (* List.iter (check_tag) reverse_data in *)
   let c_list = List.map map_tag reverse_data in
   (* List.iter print_map_list c_list ;; *)
-  let html_list = List.map converting_classification_string_to_html c_list in
+  let group_list = group_list_items c_list in
+  List.iter print_map_list group_list ;
+  let html_list = List.map converting_classification_string_to_html group_list in
   (* List.iter print_string html_list;; *)
   List.iter write_to_html_file html_list ;;
